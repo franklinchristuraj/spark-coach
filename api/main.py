@@ -13,7 +13,9 @@ from auth import verify_api_key
 from mcp_client import mcp_client
 from routes.briefing import router as briefing_router
 from routes.quiz import router as quiz_router
+from routes.nudges import router as nudges_router
 from models.database import init_db
+from scheduler import setup_scheduler, start_scheduler, stop_scheduler
 
 # Configure logging
 logging.basicConfig(
@@ -44,10 +46,16 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("⚠ MCP server is not reachable - some features may not work")
 
+    # Start scheduler for automated jobs
+    setup_scheduler()
+    start_scheduler()
+    logger.info("✓ Scheduler started")
+
     yield
 
     # Shutdown
     logger.info("Shutting down SPARK Coach API")
+    stop_scheduler()
 
 
 # Initialize FastAPI app
@@ -70,6 +78,7 @@ app.add_middleware(
 # Include routers
 app.include_router(briefing_router)
 app.include_router(quiz_router)
+app.include_router(nudges_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
