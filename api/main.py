@@ -14,6 +14,8 @@ from mcp_client import mcp_client
 from routes.briefing import router as briefing_router
 from routes.quiz import router as quiz_router
 from routes.nudges import router as nudges_router
+from routes.voice import router as voice_router
+from routes.stats import router as stats_router
 from models.database import init_db
 from scheduler import setup_scheduler, start_scheduler, stop_scheduler
 
@@ -79,6 +81,8 @@ app.add_middleware(
 app.include_router(briefing_router)
 app.include_router(quiz_router)
 app.include_router(nudges_router)
+app.include_router(voice_router)
+app.include_router(stats_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
