@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, Send, Mic, BookOpen } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { ArrowLeft, Send, Mic, BookOpen, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useChat } from "@/hooks/use-api"
 
 interface ChatScreenProps {
   onBack: () => void
@@ -68,9 +69,29 @@ function VoiceListeningOverlay() {
 
 export function ChatScreen({ onBack }: ChatScreenProps) {
   const [mode, setMode] = useState<Mode>("text")
-  const [messages] = useState<Message[]>(initialMessages)
+  const { messages, loading, error, sendMessage } = useChat()
   const [inputValue, setInputValue] = useState("")
   const [isListening, setIsListening] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || loading) return
+
+    await sendMessage(inputValue)
+    setInputValue("")
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -113,37 +134,54 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 pb-4">
         <div className="flex flex-col gap-4">
-          {messages.map((msg, i) => (
-            <div key={msg.id} className={cn("flex flex-col gap-1", msg.role === "user" ? "items-end" : "items-start")}>
-              {msg.role === "ai" && i === 0 && (
-                <span className="text-[11px] text-text-muted mb-0.5">Rafiki</span>
-              )}
-              <div
-                className={cn(
-                  "max-w-[85%] rounded-2xl px-4 py-3",
-                  msg.role === "ai"
-                    ? "bg-card border border-border card-shadow rounded-bl-md"
-                    : "bg-[rgba(37,99,235,0.12)] rounded-br-md"
-                )}
-              >
-                <p className="text-[15px] text-foreground leading-relaxed">{msg.content}</p>
-              </div>
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
+              <BookOpen className="h-12 w-12 text-text-muted" />
+              <p className="text-[15px] text-foreground font-medium">Start a conversation</p>
+              <p className="text-[13px] text-text-secondary">Ask Rafiki anything about your learning materials</p>
             </div>
-          ))}
-
-          {/* Suggestion Chips */}
-          {!isListening && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  className="rounded-full bg-secondary px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-[#E8E5E0] transition-colors border-none"
-                >
-                  {s}
-                </button>
+          ) : (
+            <>
+              {messages.map((msg, i) => (
+                <div key={i} className={cn("flex flex-col gap-1", msg.role === "user" ? "items-end" : "items-start")}>
+                  {msg.role === "assistant" && i === 0 && (
+                    <span className="text-[11px] text-text-muted mb-0.5">Rafiki</span>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-2xl px-4 py-3",
+                      msg.role === "assistant"
+                        ? "bg-card border border-border card-shadow rounded-bl-md"
+                        : "bg-[rgba(37,99,235,0.12)] rounded-br-md"
+                    )}
+                  >
+                    <p className="text-[15px] text-foreground leading-relaxed">{msg.content}</p>
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border/50">
+                        <p className="text-[11px] text-text-muted mb-1.5">Sources:</p>
+                        <div className="flex flex-col gap-1">
+                          {msg.sources.map((source, idx) => (
+                            <span key={idx} className="text-[12px] text-primary">
+                              {source.title}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
-            </div>
+              {loading && (
+                <div className="flex items-start gap-1">
+                  <div className="bg-card border border-border card-shadow rounded-2xl rounded-bl-md px-4 py-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </>
           )}
+
 
           {/* Voice Overlay */}
           {mode === "voice" && isListening && <VoiceListeningOverlay />}
@@ -152,41 +190,55 @@ export function ChatScreen({ onBack }: ChatScreenProps) {
 
       {/* Input Bar */}
       <div className="px-5 pb-20 pt-2">
+        {error && (
+          <div className="mb-3 rounded-2xl bg-red-50 border border-red-200 px-4 py-3">
+            <p className="text-[13px] text-red-600">{error.message}</p>
+          </div>
+        )}
         {mode === "voice" ? (
-          <div className="flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-[13px] text-text-secondary text-center">Voice mode not yet implemented</p>
             <button
               onClick={() => setIsListening(!isListening)}
               className={cn(
-                "flex h-14 w-14 items-center justify-center rounded-full transition-all border-none",
+                "flex h-14 w-14 items-center justify-center rounded-full transition-all border-none opacity-50 cursor-not-allowed",
                 isListening
                   ? "bg-primary animate-pulse-glow"
-                  : "bg-secondary hover:bg-[#E8E5E0]"
+                  : "bg-secondary"
               )}
               aria-label={isListening ? "Stop listening" : "Start listening"}
+              disabled
             >
               <Mic className={cn("h-6 w-6", isListening ? "text-primary-foreground" : "text-primary")} />
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-3 rounded-full bg-secondary px-4 py-3">
-            <Mic className="h-5 w-5 text-text-muted shrink-0" />
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
               placeholder="Ask Rafiki..."
-              className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-text-muted outline-none border-none"
+              disabled={loading}
+              className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-text-muted outline-none border-none disabled:opacity-50"
             />
             <button
-              className="bg-transparent border-none"
+              onClick={handleSendMessage}
+              disabled={!inputValue.trim() || loading}
+              className="bg-transparent border-none disabled:opacity-50"
               aria-label="Send message"
             >
-              <Send
-                className={cn(
-                  "h-5 w-5 transition-colors",
-                  inputValue.length > 0 ? "text-primary" : "text-text-muted"
-                )}
-              />
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              ) : (
+                <Send
+                  className={cn(
+                    "h-5 w-5 transition-colors",
+                    inputValue.length > 0 ? "text-primary" : "text-text-muted"
+                  )}
+                />
+              )}
             </button>
           </div>
         )}
