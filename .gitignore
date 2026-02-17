@@ -13,7 +13,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+backend/lib/
 lib64/
 parts/
 sdist/
@@ -69,6 +69,7 @@ mobile/.env.local
 mobile/.env.development.local
 mobile/.env.test.local
 mobile/.env.production.local
+!mobile/.env.example
 
 # Expo
 mobile/.expo/
