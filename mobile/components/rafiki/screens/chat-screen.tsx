@@ -1,0 +1,196 @@
+"use client"
+
+import { useState } from "react"
+import { ArrowLeft, Send, Mic, BookOpen } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+interface ChatScreenProps {
+  onBack: () => void
+}
+
+type Mode = "text" | "voice"
+
+interface Message {
+  id: string
+  role: "ai" | "user"
+  content: string
+}
+
+const initialMessages: Message[] = [
+  {
+    id: "1",
+    role: "ai",
+    content:
+      "What aspect of multi-agent systems feels least clear to you right now? I noticed you've added 4 seeds on this topic this week.",
+  },
+  {
+    id: "2",
+    role: "user",
+    content: "I understand the concept but struggle with handoffs between agents",
+  },
+  {
+    id: "3",
+    role: "ai",
+    content:
+      "Interesting distinction. When you say handoffs \u2014 are you thinking about data passing, or control flow? They're quite different problems to solve.",
+  },
+]
+
+const suggestions = ["Data passing", "Control flow", "Both actually"]
+
+function VoiceListeningOverlay() {
+  return (
+    <div className="flex flex-col items-center gap-6 py-8">
+      <div className="relative flex items-center justify-center">
+        <div className="h-20 w-20 rounded-full bg-primary/10 animate-pulse-glow flex items-center justify-center">
+          <div className="h-14 w-14 rounded-full bg-primary/20 flex items-center justify-center">
+            <Mic className="h-7 w-7 text-primary" />
+          </div>
+        </div>
+      </div>
+      <div className="flex items-end gap-1 h-8">
+        {[0.6, 0.8, 1, 0.7, 0.9, 1, 0.8, 0.5].map((scale, i) => (
+          <div
+            key={i}
+            className="w-1 rounded-full bg-primary animate-bar-pulse"
+            style={{
+              height: `${scale * 32}px`,
+              animationDelay: `${i * 0.15}s`,
+            }}
+          />
+        ))}
+      </div>
+      <span className="text-[15px] text-text-secondary animate-pulse">Listening...</span>
+      <span className="text-[12px] text-text-muted">Tap to stop</span>
+    </div>
+  )
+}
+
+export function ChatScreen({ onBack }: ChatScreenProps) {
+  const [mode, setMode] = useState<Mode>("text")
+  const [messages] = useState<Message[]>(initialMessages)
+  const [inputValue, setInputValue] = useState("")
+  const [isListening, setIsListening] = useState(false)
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-3">
+        <button onClick={onBack} className="text-text-secondary bg-transparent border-none" aria-label="Go back">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="text-[17px] font-bold text-foreground">Rafiki</h2>
+        <div className="flex rounded-full bg-secondary p-0.5">
+          <button
+            onClick={() => { setMode("text"); setIsListening(false) }}
+            className={cn(
+              "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-all border-none",
+              mode === "text" ? "bg-primary text-primary-foreground" : "bg-transparent text-text-secondary"
+            )}
+          >
+            Text
+          </button>
+          <button
+            onClick={() => setMode("voice")}
+            className={cn(
+              "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-all border-none",
+              mode === "voice" ? "bg-primary text-primary-foreground" : "bg-transparent text-text-secondary"
+            )}
+          >
+            Voice
+          </button>
+        </div>
+      </div>
+
+      {/* Session Context */}
+      <div className="px-5 pb-3">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5">
+          <BookOpen className="h-3 w-3 text-text-muted" />
+          <span className="text-[11px] text-text-secondary">Based on your last 7 days &middot; 23 notes</span>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-5 pb-4">
+        <div className="flex flex-col gap-4">
+          {messages.map((msg, i) => (
+            <div key={msg.id} className={cn("flex flex-col gap-1", msg.role === "user" ? "items-end" : "items-start")}>
+              {msg.role === "ai" && i === 0 && (
+                <span className="text-[11px] text-text-muted mb-0.5">Rafiki</span>
+              )}
+              <div
+                className={cn(
+                  "max-w-[85%] rounded-2xl px-4 py-3",
+                  msg.role === "ai"
+                    ? "bg-card border border-border card-shadow rounded-bl-md"
+                    : "bg-[rgba(37,99,235,0.12)] rounded-br-md"
+                )}
+              >
+                <p className="text-[15px] text-foreground leading-relaxed">{msg.content}</p>
+              </div>
+            </div>
+          ))}
+
+          {/* Suggestion Chips */}
+          {!isListening && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  className="rounded-full bg-secondary px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-[#E8E5E0] transition-colors border-none"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Voice Overlay */}
+          {mode === "voice" && isListening && <VoiceListeningOverlay />}
+        </div>
+      </div>
+
+      {/* Input Bar */}
+      <div className="px-5 pb-20 pt-2">
+        {mode === "voice" ? (
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => setIsListening(!isListening)}
+              className={cn(
+                "flex h-14 w-14 items-center justify-center rounded-full transition-all border-none",
+                isListening
+                  ? "bg-primary animate-pulse-glow"
+                  : "bg-secondary hover:bg-[#E8E5E0]"
+              )}
+              aria-label={isListening ? "Stop listening" : "Start listening"}
+            >
+              <Mic className={cn("h-6 w-6", isListening ? "text-primary-foreground" : "text-primary")} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-full bg-secondary px-4 py-3">
+            <Mic className="h-5 w-5 text-text-muted shrink-0" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Ask Rafiki..."
+              className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-text-muted outline-none border-none"
+            />
+            <button
+              className="bg-transparent border-none"
+              aria-label="Send message"
+            >
+              <Send
+                className={cn(
+                  "h-5 w-5 transition-colors",
+                  inputValue.length > 0 ? "text-primary" : "text-text-muted"
+                )}
+              />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

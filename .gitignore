@@ -57,3 +57,35 @@ Thumbs.db
 
 # Docker
 *.pid
+
+# React Native / Node.js
+mobile/node_modules/
+mobile/.expo/
+mobile/.expo-shared/
+mobile/dist/
+mobile/npm-debug.*
+mobile/yarn-error.*
+mobile/.env.local
+mobile/.env.development.local
+mobile/.env.test.local
+mobile/.env.production.local
+
+# Expo
+mobile/.expo/
+mobile/.expo-shared/
+mobile/web-build/
+
+# Metro bundler
+mobile/.metro-health-check*
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/**/*.xcworkspace/xcuserdata/
+mobile/ios/**/*.xcworkspace/xcshareddata/
+mobile/ios/.xcode.env.local
+
+# Android
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/local.properties

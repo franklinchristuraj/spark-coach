@@ -6,11 +6,29 @@ AI Learning & Accountability System for SPARK PKM
 
 SPARK Coach is an AI-powered learning and accountability system that transforms a passive Obsidian knowledge vault into an active coaching partner. It uses LLM APIs for reasoning and coaching, connecting to your SPARK PKM system via MCP server.
 
+## Project Structure
+
+```
+spark-coach/
+├── backend/              # Python FastAPI backend
+│   ├── agents/          # AI agents (briefing, quiz, voice, etc.)
+│   ├── routes/          # API endpoints
+│   ├── models/          # Database models & schemas
+│   ├── main.py          # FastAPI app entry point
+│   └── requirements.txt
+├── mobile/              # React Native app (Rafiki)
+│   └── (your React Native code here)
+├── data/                # SQLite database (persisted)
+├── .env                 # Environment variables (not in git)
+├── docker-compose.yml   # Container orchestration
+└── venv/               # Python virtual environment
+```
+
 ## Architecture
 
 - **Layer 1:** SPARK Learning Schema (Extended YAML metadata in Obsidian)
-- **Layer 2:** Agent Orchestrator (Python FastAPI - this repo)
-- **Layer 3:** React Native Mobile App (Coming in Week 2)
+- **Layer 2:** Agent Orchestrator (Python FastAPI - `/backend`)
+- **Layer 3:** React Native Mobile App (Rafiki - `/mobile`)
 
 ## Quick Start
 
@@ -39,13 +57,15 @@ SPARK Coach is an AI-powered learning and accountability system that transforms 
    - `MCP_SERVER_URL`: URL of your Obsidian MCP server (default: http://localhost:3000)
    - `SPARK_COACH_API_KEY`: API key for client authentication (set to any secure value)
 
-3. **Install dependencies:**
+3. **Install backend dependencies:**
    ```bash
-   cd api
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
-4. **Run the development server:**
+4. **Run the backend server:**
    ```bash
    python main.py
    ```
