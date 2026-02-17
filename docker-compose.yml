@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  spark-coach-api:
+    build: ./api
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MCP_SERVER_URL=${MCP_SERVER_URL}
+      - FCM_CREDENTIALS_PATH=/secrets/fcm.json
+      - TTS_API_KEY=${TTS_API_KEY}
+      - API_KEY=${SPARK_COACH_API_KEY}
+      - DATABASE_URL=sqlite:///data/spark_coach.db
+    volumes:
+      - ./data:/app/data
+      - ./audio:/app/audio
+      - ./secrets:/secrets:ro
+    restart: unless-stopped
+
+  # obsidian-mcp:
+  #   # Your existing MCP server container
+  #   # Uncomment and configure when you have MCP server running
+  #   # ports:
+  #   #   - "3000:3000"
