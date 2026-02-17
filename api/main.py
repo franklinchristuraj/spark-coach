@@ -12,6 +12,8 @@ from config import settings
 from auth import verify_api_key
 from mcp_client import mcp_client
 from routes.briefing import router as briefing_router
+from routes.quiz import router as quiz_router
+from models.database import init_db
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +29,13 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"MCP Server URL: {settings.MCP_SERVER_URL}")
+
+    # Initialize database
+    db_initialized = init_db()
+    if db_initialized:
+        logger.info("✓ Database initialized")
+    else:
+        logger.warning("⚠ Database initialization failed")
 
     # Check MCP server connectivity
     mcp_healthy = await mcp_client.health_check()
@@ -60,6 +69,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(briefing_router)
+app.include_router(quiz_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

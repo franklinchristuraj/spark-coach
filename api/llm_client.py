@@ -29,7 +29,7 @@ class LLMClient:
             import google.generativeai as genai
             genai.configure(api_key=settings.GEMINI_API_KEY)
             self.gemini = genai
-            self.default_model = "gemini-1.5-pro-latest"  # Use stable model
+            self.default_model = "gemini-3-flash-preview"  # Company Gemini model
             self.use_gemini = True
             logger.info("Using Gemini as LLM provider")
         else:
@@ -106,15 +106,13 @@ class LLMClient:
         max_tokens: int,
         temperature: float
     ) -> str:
-        """Complete using Gemini"""
+        """Complete using Gemini with system_instruction"""
         import asyncio
 
-        # Combine system prompt and user message for Gemini
-        full_prompt = f"{system_prompt}\n\n{user_message}"
-
-        # Create model instance
+        # Create model instance with system instruction
         model_instance = self.gemini.GenerativeModel(
             model_name=model or self.default_model,
+            system_instruction={"parts": [{"text": system_prompt}]},
             generation_config={
                 "temperature": temperature,
                 "max_output_tokens": max_tokens,
@@ -125,7 +123,7 @@ class LLMClient:
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
-            lambda: model_instance.generate_content(full_prompt)
+            lambda: model_instance.generate_content(user_message)
         )
 
         logger.info(f"Gemini completion successful")
@@ -139,12 +137,12 @@ class LLMClient:
         max_tokens: int = 2048
     ) -> Dict[str, Any]:
         """
-        Get a JSON-structured completion from Claude
+        Get a JSON-structured completion from LLM
 
         Args:
             system_prompt: System instructions for the LLM
             user_message: User message/query
-            model: Model to use (defaults to Sonnet 4.5)
+            model: Model to use (defaults to configured model)
             max_tokens: Maximum tokens in response
 
         Returns:
@@ -153,48 +151,83 @@ class LLMClient:
         Raises:
             Exception: If LLM call fails or JSON parsing fails
         """
-        # Augment system prompt to ensure JSON output
-        json_system_prompt = f"""{system_prompt}
+        try:
+            if self.use_gemini:
+                return await self._complete_json_gemini(
+                    system_prompt, user_message, model, max_tokens
+                )
+            else:
+                # Claude fallback with text parsing
+                json_system_prompt = f"""{system_prompt}
 
 CRITICAL: You MUST respond with valid JSON only. No markdown code blocks, no preamble, no explanation.
 Just pure JSON that can be directly parsed."""
 
-        json_user_message = f"""{user_message}
+                json_user_message = f"""{user_message}
 
 Remember: Respond with valid JSON only. No markdown formatting."""
 
-        try:
-            response_text = await self.complete(
-                system_prompt=json_system_prompt,
-                user_message=json_user_message,
-                model=model,
-                max_tokens=max_tokens,
-                temperature=0.7  # Slightly lower temperature for structured output
-            )
+                response_text = await self.complete(
+                    system_prompt=json_system_prompt,
+                    user_message=json_user_message,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=0.7
+                )
 
-            # Clean up the response - remove markdown code blocks if present
-            cleaned = response_text.strip()
-            if cleaned.startswith("```json"):
-                cleaned = cleaned[7:]  # Remove ```json
-            if cleaned.startswith("```"):
-                cleaned = cleaned[3:]  # Remove ```
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]  # Remove trailing ```
-            cleaned = cleaned.strip()
+                # Clean up the response - remove markdown code blocks if present
+                cleaned = response_text.strip()
+                if cleaned.startswith("```json"):
+                    cleaned = cleaned[7:]
+                if cleaned.startswith("```"):
+                    cleaned = cleaned[3:]
+                if cleaned.endswith("```"):
+                    cleaned = cleaned[:-3]
+                cleaned = cleaned.strip()
 
-            # Parse JSON
-            parsed = json.loads(cleaned)
-            logger.info("LLM JSON completion successful")
-
-            return parsed
+                parsed = json.loads(cleaned)
+                logger.info("LLM JSON completion successful")
+                return parsed
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM JSON response: {str(e)}")
-            logger.error(f"Raw response: {response_text[:500]}")
             raise ValueError(f"LLM did not return valid JSON: {str(e)}")
         except Exception as e:
             logger.error(f"LLM JSON completion failed: {str(e)}")
             raise
+
+    async def _complete_json_gemini(
+        self,
+        system_prompt: str,
+        user_message: str,
+        model: Optional[str],
+        max_tokens: int
+    ) -> Dict[str, Any]:
+        """Complete with JSON output using Gemini's native JSON mode"""
+        import asyncio
+
+        # Create model instance with JSON response format
+        model_instance = self.gemini.GenerativeModel(
+            model_name=model or self.default_model,
+            system_instruction={"parts": [{"text": system_prompt}]},
+            generation_config={
+                "temperature": 0.7,
+                "max_output_tokens": max_tokens,
+                "response_mime_type": "application/json"
+            }
+        )
+
+        # Generate response
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: model_instance.generate_content(user_message)
+        )
+
+        # Parse JSON response
+        parsed = json.loads(response.text)
+        logger.info("Gemini JSON completion successful")
+        return parsed
 
     async def coach_message(
         self,
