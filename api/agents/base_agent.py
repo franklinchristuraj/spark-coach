@@ -49,7 +49,7 @@ class BaseAgent(ABC):
         try:
             # Search for notes with learning_status: active in resources folder
             results = await self.mcp.search_notes(
-                query="learning_status: active",
+                query="learning_status",  # Simpler keyword
                 folder="04_resources"
             )
 
@@ -94,7 +94,7 @@ class BaseAgent(ABC):
         try:
             # Search in projects folder for learning_path type
             results = await self.mcp.search_notes(
-                query="type: learning_path",
+                query="learning_path",  # Simpler keyword for keyword search
                 folder="02_projects"
             )
 
