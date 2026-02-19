@@ -16,8 +16,8 @@ spark-coach/
 │   ├── models/          # Database models & schemas
 │   ├── main.py          # FastAPI app entry point
 │   └── requirements.txt
-├── mobile/              # React Native app (Rafiki)
-│   └── (your React Native code here)
+├── mobile/              # Next.js web app (Rafiki)
+│   └── (React frontend with Radix UI)
 ├── data/                # SQLite database (persisted)
 ├── .env                 # Environment variables (not in git)
 ├── docker-compose.yml   # Container orchestration
@@ -59,23 +59,37 @@ spark-coach/
 
 3. **Install backend dependencies:**
    ```bash
-   cd backend
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
+   pip install -r backend/requirements.txt
    ```
 
-4. **Run the backend server:**
+4. **Install frontend dependencies:**
    ```bash
-   python main.py
+   npm install --prefix mobile
    ```
 
-   Or with uvicorn directly:
+5. **Run both servers:**
    ```bash
-   uvicorn main:app --reload --host 0.0.0.0 --port 8080
+   # Terminal 1: Backend (port 8080)
+   source venv/bin/activate && python backend/main.py
+
+   # Terminal 2: Frontend (port 3000)
+   npm run dev --prefix mobile
    ```
 
-5. **Test the API:**
+   Or run both in background:
+   ```bash
+   source venv/bin/activate && python backend/main.py > backend.log 2>&1 &
+   npm run dev --prefix mobile > mobile.log 2>&1 &
+   ```
+
+6. **Access the app:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8080
+   - API Docs: http://localhost:8080/docs
+
+7. **Test the API:**
    ```bash
    # Health check (no auth required)
    curl http://localhost:8080/health
@@ -247,8 +261,15 @@ If you get 401 errors:
 
 If you see Python import errors:
 
-1. Ensure you're in the `api/` directory when running `python main.py`
-2. Or add the api directory to PYTHONPATH: `export PYTHONPATH=/path/to/spark-coach/api:$PYTHONPATH`
+1. Ensure you're running from the project root: `python backend/main.py`
+2. Or add the backend directory to PYTHONPATH: `export PYTHONPATH=/path/to/spark-coach/backend:$PYTHONPATH`
+
+### Pydantic Validation Errors
+
+If you see "Extra inputs are not permitted" errors:
+
+1. This has been fixed - ensure `backend/config.py` has `extra = "ignore"` in the Config class
+2. Pull the latest changes: `git pull origin main`
 
 ## License
 

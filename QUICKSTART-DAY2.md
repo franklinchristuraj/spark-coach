@@ -17,12 +17,11 @@ Test the Day 2 implementation without configuring your vault:
 cat .env | grep ANTHROPIC_API_KEY
 
 # 2. Install new dependencies
-cd api
-pip install -r requirements.txt
-cd ..
+source venv/bin/activate
+pip install -r backend/requirements.txt
 
 # 3. Run the API
-make run
+python backend/main.py
 
 # 4. In another terminal, test quick briefing (no LLM)
 curl -H "X-API-Key: dev_test_key_12345" \
@@ -258,4 +257,4 @@ make test-day2
 
 **You're ready!** Your AI learning coach is now active. 🚀
 
-*Last Updated: 2026-02-16*
+*Last Updated: 2026-02-19*
