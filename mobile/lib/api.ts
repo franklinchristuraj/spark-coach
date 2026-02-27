@@ -3,21 +3,33 @@
  * Connects to FastAPI backend
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'dev_test_key_12345';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+
+function getToken(): string {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(/(?:^|;\s*)spark_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
 
 // Generic fetch wrapper with error handling
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const token = getToken();
 
   const response = await fetch(url, {
     ...options,
     headers: {
-      'X-API-Key': API_KEY,
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
+
+  if (response.status === 401) {
+    document.cookie = 'spark_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    window.location.href = '/login';
+    throw new Error('Not authenticated');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
