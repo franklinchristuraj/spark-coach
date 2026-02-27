@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { logout } from "@/services/api"
 import { FloatingNav } from "@/components/rafiki/floating-nav"
 import { HomeScreen } from "@/components/rafiki/screens/home-screen"
 import { ChatScreen } from "@/components/rafiki/screens/chat-screen"
@@ -14,7 +15,14 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("home")
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#E8E5E0]">
+    <div className="relative flex min-h-dvh items-center justify-center bg-[#E8E5E0]">
+      {/* Logout — small, unobtrusive, top-right */}
+      <button
+        onClick={logout}
+        className="absolute top-4 right-4 z-50 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        Sign out
+      </button>
       {/* Mobile Shell */}
       <div className="relative w-full max-w-[390px] min-h-dvh md:min-h-0 md:h-[844px] bg-background overflow-hidden md:rounded-[40px] md:border md:border-border md:shadow-xl md:my-8">
         <div className="h-full overflow-y-auto scrollbar-hide">
