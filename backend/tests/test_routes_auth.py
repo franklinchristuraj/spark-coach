@@ -33,12 +33,17 @@ def test_login_empty_password():
 
 
 def test_protected_endpoint_with_valid_token():
-    # Get a token
+    # Get a valid token
     resp = client.post("/api/v1/auth/login", json={"password": "testpassword123"})
+    assert resp.status_code == 200
     token = resp.json()["access_token"]
-    # Use it on a protected endpoint
-    resp = client.get("/health")
-    assert resp.status_code == 200  # health is public
+    # Use it to access a protected endpoint
+    resp = client.get(
+        "/api/v1/briefing/quick",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    # Should not be 401 (may be 500 if briefing service is unavailable in test, that's OK)
+    assert resp.status_code != 401
 
 
 def test_protected_endpoint_without_token():

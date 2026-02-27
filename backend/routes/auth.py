@@ -4,7 +4,7 @@ Single endpoint: POST /api/v1/auth/login
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
-from auth import verify_password, create_access_token
+from auth import verify_password, create_access_token, TOKEN_EXPIRE_DAYS
 from config import settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -24,7 +24,7 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    expires_in: int = 604800  # 7 days in seconds
+    expires_in: int = TOKEN_EXPIRE_DAYS * 86400
 
 
 @router.post("/login", response_model=LoginResponse)

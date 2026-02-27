@@ -2,7 +2,7 @@
 Authentication for SPARK Coach API
 JWT-based auth replacing the MVP API key approach.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, Security
@@ -23,11 +23,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(expires_delta: timedelta = timedelta(days=TOKEN_EXPIRE_DAYS)) -> str:
     """Create a signed JWT that expires after expires_delta."""
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     payload = {
         "sub": "franklin",
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALGORITHM)
 

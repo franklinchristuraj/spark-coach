@@ -1,6 +1,6 @@
 import pytest
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Set test env vars before importing anything
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-that-is-long-enough-for-hs256"
@@ -43,8 +43,8 @@ def test_create_access_token_expires_in_7_days():
     from jose import jwt
     token = create_access_token()
     payload = jwt.decode(token, "test-secret-key-that-is-long-enough-for-hs256", algorithms=["HS256"])
-    exp = datetime.utcfromtimestamp(payload["exp"])
-    now = datetime.utcnow()
+    exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    now = datetime.now(timezone.utc)
     diff = exp - now
     # Should be approximately 7 days (allow 1 minute tolerance)
     assert timedelta(days=6, hours=23) < diff < timedelta(days=7, minutes=1)
