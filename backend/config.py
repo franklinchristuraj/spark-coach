@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # SPARK Coach API Key (for client authentication)
     API_KEY: str = os.getenv("SPARK_COACH_API_KEY", "dev_test_key_12345")
 
+    # JWT Authentication
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change-me-to-a-random-32-char-secret")
+    SPARK_COACH_PASSWORD_HASH: str = os.getenv("SPARK_COACH_PASSWORD_HASH", "")
+
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///data/spark_coach.db")
 
