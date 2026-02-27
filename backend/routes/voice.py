@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 import logging
 
-from auth import verify_api_key
+from auth import verify_token
 from agents.voice_router import voice_router_agent
 from llm_client import llm_client
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/v1",
     tags=["voice", "chat"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_token)]
 )
 
 

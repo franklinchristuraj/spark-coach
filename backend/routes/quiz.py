@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 import logging
 
-from auth import verify_api_key
+from auth import verify_token
 from agents.quiz_generator import quiz_generator_agent
 from models.schemas import (
     QuizStartRequest,
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/v1",
     tags=["quiz"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_token)]
 )
 
 

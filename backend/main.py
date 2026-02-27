@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 import logging
 
 from config import settings
-from auth import verify_api_key
+from auth import verify_token
+from routes.auth import router as auth_router
 from mcp_client import mcp_client
 from routes.briefing import router as briefing_router
 from routes.quiz import router as quiz_router
@@ -78,6 +79,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(briefing_router)
 app.include_router(quiz_router)
 app.include_router(nudges_router)
@@ -119,7 +121,7 @@ async def root():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/v1/test-mcp")
-async def test_mcp_connection(api_key: str = Depends(verify_api_key)):
+async def test_mcp_connection(_: str = Depends(verify_token)):
     """
     Test MCP server connectivity by reading a note from the vault
     Requires authentication
@@ -181,7 +183,7 @@ async def test_mcp_connection(api_key: str = Depends(verify_api_key)):
 async def test_mcp_search(
     query: str,
     folder: str = None,
-    api_key: str = Depends(verify_api_key)
+    _: str = Depends(verify_token)
 ):
     """
     Test MCP search functionality
@@ -214,7 +216,7 @@ async def test_mcp_search(
 
 
 @app.get("/api/v1/mcp/read/{path:path}")
-async def test_mcp_read(path: str, api_key: str = Depends(verify_api_key)):
+async def test_mcp_read(path: str, _: str = Depends(verify_token)):
     """
     Test reading a specific note by path
     Requires authentication

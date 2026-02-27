@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import logging
 
-from auth import verify_api_key
+from auth import verify_token
 from models.database import QuizSession, QuizAnswer, LearningLog, get_db_sync
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/v1",
     tags=["stats"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_token)]
 )
 
 

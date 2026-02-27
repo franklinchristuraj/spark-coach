@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import Dict, Any, List
 import logging
 
-from auth import verify_api_key
+from auth import verify_token
 from agents.abandonment_detector import abandonment_detector_agent
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/v1",
     tags=["nudges"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_token)]
 )
 
 

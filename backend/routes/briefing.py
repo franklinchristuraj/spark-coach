@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 import logging
 
-from auth import verify_api_key
+from auth import verify_token
 from agents.morning_briefing import morning_briefing_agent
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/v1",
     tags=["briefing"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_token)]
 )
 
 
