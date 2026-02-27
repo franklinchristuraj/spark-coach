@@ -1,53 +1,55 @@
 """
-Authentication middleware for SPARK Coach API
-MVP: Simple API key check
-Week 2: Migrate to JWT
+Authentication for SPARK Coach API
+JWT-based auth replacing the MVP API key approach.
 """
-from fastapi import Request, HTTPException, Security
-from fastapi.security import APIKeyHeader
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from fastapi import HTTPException, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from config import settings
 
-# API Key header security scheme
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_bearer = HTTPBearer(auto_error=False)
+
+ALGORITHM = "HS256"
+TOKEN_EXPIRE_DAYS = 7
 
 
-async def verify_api_key(api_key: str = Security(api_key_header)):
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Check a plaintext password against its bcrypt hash."""
+    return _pwd_context.verify(plain_password, hashed_password)
+
+
+def create_access_token(expires_delta: timedelta = timedelta(days=TOKEN_EXPIRE_DAYS)) -> str:
+    """Create a signed JWT that expires after expires_delta."""
+    expire = datetime.utcnow() + expires_delta
+    payload = {
+        "sub": "franklin",
+        "exp": expire,
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_token(
+    credentials: HTTPAuthorizationCredentials = Security(_bearer),
+) -> str:
     """
-    MVP auth: simple API key check
-
-    Args:
-        api_key: API key from X-API-Key header
-
-    Raises:
-        HTTPException: If API key is invalid or missing
+    FastAPI dependency — validates Bearer JWT from Authorization header.
+    Raises 401 if token is missing, invalid, or expired.
     """
-    if not api_key:
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key. Include X-API-Key header."
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.JWT_SECRET_KEY,
+            algorithms=[ALGORITHM],
         )
-
-    if api_key != settings.API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
-        )
-
-    return api_key
-
-
-async def verify_api_key_optional(api_key: str = Security(api_key_header)):
-    """
-    Optional API key verification for public endpoints
-    Returns None if no key provided, validates if present
-    """
-    if not api_key:
-        return None
-
-    if api_key != settings.API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
-        )
-
-    return api_key
+        sub: str = payload.get("sub")
+        if sub is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return sub
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
