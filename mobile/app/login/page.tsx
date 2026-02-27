@@ -35,8 +35,12 @@ function LoginForm() {
         body: JSON.stringify({ password }),
       })
 
-      if (!res.ok) {
+      if (res.status === 401) {
         setError("Incorrect password")
+        return
+      }
+      if (!res.ok) {
+        setError("Something went wrong. Try again.")
         return
       }
 
