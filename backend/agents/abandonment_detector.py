@@ -25,64 +25,90 @@ class AbandonmentDetectorAgent(BaseAgent):
 
     async def run(self, **kwargs) -> Dict[str, Any]:
         """
-        Main entry point - scan all resources and detect abandonment
-
-        Returns:
-            Dictionary with detected resources and generated nudges
+        Scan all active resources, calculate abandonment risk from scratch,
+        update vault metadata, and generate nudges for high-risk resources.
         """
         logger.info("🔍 Running abandonment detection...")
 
         try:
-            # Get all active and paused resources
-            at_risk_resources = await self.get_at_risk_resources()
+            resources = await self.get_active_resources()
 
-            if not at_risk_resources:
-                logger.info("✓ No at-risk resources found")
+            if not resources:
+                logger.info("✓ No active resources found")
                 return {
                     "status": "success",
                     "at_risk_count": 0,
                     "nudges_created": 0,
-                    "resources": []
+                    "resources": [],
                 }
 
-            logger.info(f"Found {len(at_risk_resources)} at-risk resources")
-
-            # Process each at-risk resource
             nudges_created = 0
             processed_resources = []
 
-            for resource in at_risk_resources:
+            for resource in resources:
                 path = resource["path"]
-                risk_level = resource["risk_level"]
-                days_inactive = resource["days_inactive"]
+                frontmatter = resource.get("frontmatter", {})
+                title = frontmatter.get("title", path.split("/")[-1].replace(".md", ""))
+                last_reviewed = frontmatter.get("last_reviewed")
 
-                # Update abandonment_risk in vault
-                await self.update_resource_metadata(path, {
-                    "abandonment_risk": risk_level
-                })
+                # Calculate days inactive
+                if last_reviewed:
+                    try:
+                        last_date = datetime.strptime(last_reviewed, "%Y-%m-%d")
+                        days_inactive = (datetime.now() - last_date).days
+                    except Exception:
+                        days_inactive = 0
+                else:
+                    days_inactive = 0
 
-                # Generate nudge for high-risk resources
+                # Calculate risk using the base agent helper
+                risk_level = self.calculate_abandonment_risk(
+                    last_reviewed=last_reviewed,
+                    completion_status=frontmatter.get("completion_status", "in_progress"),
+                    hours_invested=float(frontmatter.get("hours_invested", 0)),
+                    estimated_hours=float(frontmatter.get("estimated_hours", 1)),
+                )
+
+                if risk_level == "low":
+                    continue
+
+                # Update vault with calculated risk level
+                await self.update_resource_metadata(path, {"abandonment_risk": risk_level})
+
+                # Generate and store nudge for high-risk resources only
+                nudge_sent = False
                 if risk_level == "high":
-                    nudge = await self._generate_nudge(resource)
+                    enriched = {
+                        "path": path,
+                        "title": title,
+                        "days_inactive": days_inactive,
+                        "key_insights": frontmatter.get("key_insights", []),
+                        "learning_path": frontmatter.get("learning_path", ""),
+                    }
+                    nudge = await self._generate_nudge(enriched)
                     if nudge:
                         await self._store_nudge(path, nudge)
                         nudges_created += 1
+                        nudge_sent = True
 
                 processed_resources.append({
                     "path": path,
-                    "title": resource["title"],
+                    "title": title,
                     "risk_level": risk_level,
                     "days_inactive": days_inactive,
-                    "nudge_sent": risk_level == "high"
+                    "nudge_sent": nudge_sent,
                 })
 
-            logger.info(f"✓ Processed {len(processed_resources)} resources, created {nudges_created} nudges")
+            logger.info(
+                f"✓ Processed {len(processed_resources)} at-risk resources, "
+                f"created {nudges_created} nudges"
+            )
 
             return {
                 "status": "success",
-                "at_risk_count": len(at_risk_resources),
+                "at_risk_count": len(processed_resources),
                 "nudges_created": nudges_created,
-                "resources": processed_resources
+                "resources": processed_resources,
             }
 
         except Exception as e:
