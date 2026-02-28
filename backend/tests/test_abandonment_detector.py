@@ -142,8 +142,8 @@ async def test_high_risk_creates_nudge():
 
 
 @pytest.mark.asyncio
-async def test_missing_last_reviewed_is_low_risk():
-    """Resources with no last_reviewed date are treated as 0 days inactive (low risk)."""
+async def test_missing_last_reviewed_is_medium_risk():
+    """Resources with no last_reviewed date are medium risk (calculate_abandonment_risk returns 'medium' for None)."""
     resource = _resource("04_resources/new.md", last_reviewed=None)
 
     with patch(
@@ -158,5 +158,9 @@ async def test_missing_last_reviewed_is_low_risk():
             agent = AbandonmentDetectorAgent()
             result = await agent.run()
 
-    assert result["at_risk_count"] == 0
-    mock_update.assert_not_called()
+    assert result["at_risk_count"] == 1
+    assert result["resources"][0]["risk_level"] == "medium"
+    assert result["resources"][0]["nudge_sent"] is False
+    mock_update.assert_called_once_with(
+        "04_resources/new.md", {"abandonment_risk": "medium"}
+    )
