@@ -17,10 +17,9 @@ class AbandonmentDetectorAgent(BaseAgent):
     """
     Detects abandoned resources and generates motivational nudges
 
-    Risk Levels:
-    - LOW: Reviewed within last 5 days
-    - MEDIUM: No activity 5-10 days
-    - HIGH: No activity > 10 days
+    Risk levels are calculated by BaseAgent.calculate_abandonment_risk() using
+    days since last_reviewed combined with completion_status and progress.
+    See base_agent.py for exact thresholds.
     """
 
     async def run(self, **kwargs) -> Dict[str, Any]:
@@ -57,6 +56,7 @@ class AbandonmentDetectorAgent(BaseAgent):
                         last_date = datetime.strptime(last_reviewed, "%Y-%m-%d")
                         days_inactive = (datetime.now() - last_date).days
                     except Exception:
+                        logger.warning(f"Could not parse last_reviewed date '{last_reviewed}' for {path}, treating as 0 days")
                         days_inactive = 0
                 else:
                     days_inactive = 0
@@ -87,9 +87,10 @@ class AbandonmentDetectorAgent(BaseAgent):
                     }
                     nudge = await self._generate_nudge(enriched)
                     if nudge:
-                        await self._store_nudge(path, nudge)
-                        nudges_created += 1
-                        nudge_sent = True
+                        stored = await self._store_nudge(path, nudge)
+                        if stored:
+                            nudges_created += 1
+                            nudge_sent = True
 
                 processed_resources.append({
                     "path": path,
