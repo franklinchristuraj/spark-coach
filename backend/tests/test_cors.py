@@ -1,9 +1,11 @@
 import os
-import pytest
 
 # Must set env vars before any project imports
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-that-is-long-enough-for-hs256")
-# Use the hash for "testpassword123" so test_routes_auth.py works when run in the same process
+# bcrypt hash of "testpassword123" (work factor 12).
+# Must stay in sync with the password used in test_routes_auth.py.
+# If test_routes_auth.py changes its test password, regenerate this hash with:
+#   python3 -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('newpassword'))"
 os.environ["SPARK_COACH_PASSWORD_HASH"] = "$2b$12$CLefaqNbKaBNkWYFd88YZerlgu4bKpSuXUkHBjMK8n46KvbjaML.2"
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("MCP_SERVER_URL", "http://localhost:3000")
@@ -29,5 +31,5 @@ def test_cors_allows_production_origin():
 
 def test_cors_blocks_unknown_origin():
     resp = client.get("/health", headers={"Origin": "https://evil.example.com"})
-    # Should not echo the unknown origin back
-    assert resp.headers.get("access-control-allow-origin") != "https://evil.example.com"
+    # Unknown origins must be rejected — header must be absent entirely
+    assert resp.headers.get("access-control-allow-origin") is None
