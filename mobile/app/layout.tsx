@@ -6,9 +6,14 @@ import './globals.css'
 const _dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-dm-sans" });
 
 export const metadata: Metadata = {
-  title: 'RAFIKI - Personal AI Coach',
-  description: 'Your calm, intelligent AI coaching companion. Socratic mentorship powered by your personal knowledge vault.',
-  generator: 'v0.app',
+  title: 'Rafiki',
+  description: 'Your personal AI learning coach',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Rafiki',
+  },
   icons: {
     icon: [
       {
