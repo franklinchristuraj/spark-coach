@@ -8,6 +8,12 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 REPO_URL="https://github.com/your-org/spark-coach.git"
+
+# Ensure REPO_URL has been updated before running
+if [ "${REPO_URL}" = "https://github.com/your-org/spark-coach.git" ]; then
+    echo "ERROR: Update REPO_URL in deploy.sh with the actual repository URL before running." >&2
+    exit 1
+fi
 INSTALL_DIR="/opt/spark-coach"
 DOMAIN="coach-api.ziksaka.com"
 CERTBOT_EMAIL="admin@ziksaka.com"
