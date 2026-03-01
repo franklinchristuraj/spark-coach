@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Must run as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: This script must be run as root. Use: sudo bash deploy.sh" >&2
+    exit 1
+fi
+
 REPO_URL="https://github.com/your-org/spark-coach.git"
 INSTALL_DIR="/opt/spark-coach"
 DOMAIN="coach-api.ziksaka.com"
+CERTBOT_EMAIL="admin@ziksaka.com"
 NGINX_CONF="/etc/nginx/sites-available/${DOMAIN}"
 NGINX_LINK="/etc/nginx/sites-enabled/${DOMAIN}"
 
@@ -111,7 +118,7 @@ if [ -f "${CERT_PATH}" ]; then
 else
     echo "    Running certbot --nginx for ${DOMAIN}..."
     certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos \
-        --email "admin@ziksaka.com" --redirect
+        --email "${CERTBOT_EMAIL}" --redirect
     echo "    SSL certificate obtained and Nginx updated."
 fi
 
