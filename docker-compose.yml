@@ -13,6 +13,9 @@ services:
       - TTS_API_KEY=${TTS_API_KEY}
       - API_KEY=${SPARK_COACH_API_KEY}
       - DATABASE_URL=sqlite:///data/spark_coach.db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SPARK_COACH_PASSWORD_HASH=${SPARK_COACH_PASSWORD_HASH}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     volumes:
       - ./data:/app/data
       - ./audio:/app/audio
