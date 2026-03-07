@@ -9,7 +9,6 @@ const _dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "700"], var
 export const metadata: Metadata = {
   title: 'Rafiki',
   description: 'Your personal AI learning coach',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -49,6 +48,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body className={`${_dmSans.variable} font-sans antialiased`}>
         {children}
         <ServiceWorkerRegistrar />
