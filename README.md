@@ -136,10 +136,13 @@ All authenticated endpoints require the `X-API-Key` header.
 - `GET /api/v1/briefing` - Get personalized morning briefing with daily plan
 - `GET /api/v1/briefing/quick` - Get quick stats without LLM processing
 
-**Coming Soon (Day 3+):**
+**Day 3 - Quiz System:**
+- `POST /api/v1/quiz/start` - Start a quiz session for a resource
+- `POST /api/v1/quiz/answer` - Submit quiz answer and get feedback
+- `GET /api/v1/quiz/session/{session_id}` - Get quiz session status
+
+**Coming Soon (Day 4+):**
 - `GET /api/v1/learning-paths` - List all learning paths
-- `POST /api/v1/quiz/start` - Start a quiz session
-- `POST /api/v1/quiz/answer` - Submit quiz answer
 - `POST /api/v1/voice/process` - Process voice input
 - `GET /api/v1/stats/dashboard` - Get learning statistics
 
@@ -164,12 +167,16 @@ All authenticated endpoints require the `X-API-Key` header.
 
 **Deliverable:** `GET /api/v1/briefing` returns personalized daily learning plan
 
-### 🔄 Day 3: Quiz System (Next)
-- [ ] Implement quiz_generator.py agent
-- [ ] Create SQLite models for quiz sessions
-- [ ] Build quiz API endpoints (start, answer)
-- [ ] Implement retention score calculation
-- [ ] Update next_review dates automatically
+### ✅ Day 3: Quiz System (Completed)
+- [x] Implement quiz_generator.py agent
+- [x] Create SQLite models for quiz sessions (QuizSession, QuizAnswer, LearningLog)
+- [x] Build quiz API endpoints (start, answer, get session)
+- [x] Implement retention score calculation with spaced repetition
+- [x] Update next_review dates automatically in vault
+- [x] LLM-based question generation and answer scoring
+- [x] Pre-generated questions support via frontmatter
+
+**Deliverable:** `POST /api/v1/quiz/start` generates quiz, `POST /api/v1/quiz/answer` scores answers and updates vault retention
 
 ### 📋 Day 4-5: Abandonment, Voice, Stats
 - [ ] Abandonment detector with scheduled jobs
@@ -238,6 +245,41 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8080/api/v1/briefing
 
 # Get quick briefing stats
 curl -H "X-API-Key: $API_KEY" http://localhost:8080/api/v1/briefing/quick
+
+# Start a quiz (Day 3)
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"franklin","password":"'$API_KEY'"}'
+
+# (Use the returned JWT token for quiz endpoints)
+TOKEN="your_jwt_token_here"
+
+curl -X POST http://localhost:8080/api/v1/quiz/start \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"resource_path":"04_resources/test.md","num_questions":3}'
+
+# Submit an answer
+curl -X POST http://localhost:8080/api/v1/quiz/answer \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"quiz_20260228_143022","question_index":1,"answer":"Your answer"}'
+```
+
+### Automated Quiz Testing
+
+Run the comprehensive quiz test script:
+
+```bash
+# Start backend first
+source venv/bin/activate
+python backend/main.py &
+
+# Run automated test
+python3 test_quiz_system.py --resource "04_resources/your-resource.md"
+```
+
+See `QUIZ-SYSTEM-SUMMARY.md` for complete quiz system documentation.
 ```
 
 ## Troubleshooting

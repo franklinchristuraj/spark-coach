@@ -4,6 +4,7 @@ Abstraction layer for Claude API (primary) and Gemini (fallback)
 """
 import json
 import logging
+import asyncio
 from typing import Optional, Dict, Any, List
 from config import settings
 
@@ -26,12 +27,11 @@ class LLMClient:
             self.default_model = "claude-sonnet-4-5-20250929"
             logger.info("Using Claude (Anthropic) as LLM provider")
         elif settings.GEMINI_API_KEY:
-            import google.generativeai as genai
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            self.gemini = genai
-            self.default_model = "gemini-3-flash-preview"  # Company Gemini model
+            from google import genai
+            self.gemini = genai.Client(api_key=settings.GEMINI_API_KEY)
+            self.default_model = "gemini-2.5-flash"
             self.use_gemini = True
-            logger.info("Using Gemini as LLM provider")
+            logger.info("Using Gemini (google-genai SDK) as LLM provider")
         else:
             raise ValueError("No LLM API key configured. Set ANTHROPIC_API_KEY or GEMINI_API_KEY")
 
@@ -59,18 +59,27 @@ class LLMClient:
         Raises:
             Exception: If LLM call fails
         """
-        try:
-            if self.use_gemini:
-                return await self._complete_gemini(
-                    system_prompt, user_message, model, max_tokens, temperature
-                )
-            else:
-                return await self._complete_claude(
-                    system_prompt, user_message, model, max_tokens, temperature
-                )
-        except Exception as e:
-            logger.error(f"LLM completion failed: {str(e)}")
-            raise
+        last_exc = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                if self.use_gemini:
+                    return await self._complete_gemini(
+                        system_prompt, user_message, model, max_tokens, temperature
+                    )
+                else:
+                    return await self._complete_claude(
+                        system_prompt, user_message, model, max_tokens, temperature
+                    )
+            except Exception as e:
+                last_exc = e
+                if "429" in str(e) and attempt < self.max_retries:
+                    wait = 10 * (attempt + 1)
+                    logger.warning(f"Rate limited (429), retrying in {wait}s… (attempt {attempt + 1}/{self.max_retries})")
+                    await asyncio.sleep(wait)
+                else:
+                    break
+        logger.error(f"LLM completion failed after {self.max_retries + 1} attempts: {str(last_exc)}")
+        raise last_exc
 
     async def _complete_claude(
         self,
@@ -106,27 +115,22 @@ class LLMClient:
         max_tokens: int,
         temperature: float
     ) -> str:
-        """Complete using Gemini with system_instruction"""
-        import asyncio
+        """Complete using Gemini (google-genai SDK)"""
+        from google.genai import types
 
-        # Create model instance with system instruction
-        model_instance = self.gemini.GenerativeModel(
-            model_name=model or self.default_model,
-            system_instruction={"parts": [{"text": system_prompt}]},
-            generation_config={
-                "temperature": temperature,
-                "max_output_tokens": max_tokens,
-            }
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            max_output_tokens=max_tokens,
+            temperature=temperature,
         )
 
-        # Generate response (Gemini SDK is sync, so run in executor)
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: model_instance.generate_content(user_message)
+        response = await self.gemini.aio.models.generate_content(
+            model=model or self.default_model,
+            contents=user_message,
+            config=config,
         )
 
-        logger.info(f"Gemini completion successful")
+        logger.info("Gemini completion successful")
         return response.text
 
     async def complete_json(
@@ -204,27 +208,21 @@ Remember: Respond with valid JSON only. No markdown formatting."""
         max_tokens: int
     ) -> Dict[str, Any]:
         """Complete with JSON output using Gemini's native JSON mode"""
-        import asyncio
+        from google.genai import types
 
-        # Create model instance with JSON response format
-        model_instance = self.gemini.GenerativeModel(
-            model_name=model or self.default_model,
-            system_instruction={"parts": [{"text": system_prompt}]},
-            generation_config={
-                "temperature": 0.7,
-                "max_output_tokens": max_tokens,
-                "response_mime_type": "application/json"
-            }
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            max_output_tokens=max_tokens,
+            temperature=0.7,
+            response_mime_type="application/json",
         )
 
-        # Generate response
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: model_instance.generate_content(user_message)
+        response = await self.gemini.aio.models.generate_content(
+            model=model or self.default_model,
+            contents=user_message,
+            config=config,
         )
 
-        # Parse JSON response
         parsed = json.loads(response.text)
         logger.info("Gemini JSON completion successful")
         return parsed
