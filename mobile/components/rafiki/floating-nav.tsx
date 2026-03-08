@@ -20,12 +20,11 @@ const tabs: { id: Tab; icon: typeof Home; label: string }[] = [
 
 export function FloatingNav({ activeTab, onTabChange }: FloatingNavProps) {
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-50">
-      <nav
-        className="flex h-[72px] items-center justify-around bg-card border-t border-border px-2"
-        role="navigation"
-        aria-label="Main navigation"
-      >
+    <nav
+      className="flex h-[72px] flex-shrink-0 items-center justify-around bg-card border-t border-border px-2 pb-[env(safe-area-inset-bottom)]"
+      role="navigation"
+      aria-label="Main navigation"
+    >
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -55,7 +54,6 @@ export function FloatingNav({ activeTab, onTabChange }: FloatingNavProps) {
             </button>
           )
         })}
-      </nav>
-    </div>
+    </nav>
   )
 }

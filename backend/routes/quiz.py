@@ -91,6 +91,26 @@ async def submit_answer(request: QuizAnswerRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to submit answer: {str(e)}")
 
 
+@router.get("/quiz/resources")
+async def list_quiz_resources() -> Dict[str, Any]:
+    """
+    List vault resources available for quizzing (from 04_resources/).
+    Used as fallback when no reviews are due.
+    """
+    try:
+        from mcp_client import mcp_client
+        notes = await mcp_client.search_notes("type: resource", folder="04_resources", limit=20)
+        resources = [
+            {"title": n.get("title") or n.get("path", "").split("/")[-1].replace(".md", ""), "path": n.get("path", "")}
+            for n in notes
+            if n.get("path")
+        ]
+        return {"status": "success", "resources": resources}
+    except Exception as e:
+        logger.error(f"Failed to list quiz resources: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list resources: {str(e)}")
+
+
 @router.get("/quiz/session/{session_id}")
 async def get_quiz_session(session_id: str) -> Dict[str, Any]:
     """

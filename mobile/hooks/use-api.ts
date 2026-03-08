@@ -49,14 +49,70 @@ function useApi<T>(
 // Specific Hooks
 // ─────────────────────────────────────────────────────────────────────────────
 
+const BRIEFING_CACHE_KEY = 'spark_briefing_cache';
+const BRIEFING_CACHE_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+interface BriefingCache {
+  data: BriefingResponse;
+  timestamp: number;
+  userName: string;
+}
+
 /**
- * Get daily briefing
+ * Get daily briefing — stale-while-revalidate with 8h localStorage cache
  */
 export function useBriefing(userName: string = 'Franklin') {
-  return useApi<BriefingResponse>(
-    () => api.getBriefing(userName),
-    [userName]
-  );
+  const [data, setData] = useState<BriefingResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchFresh = useCallback(async (showLoading: boolean) => {
+    try {
+      if (showLoading) setLoading(true);
+      setError(null);
+      const result = await api.getBriefing(userName);
+      setData(result);
+      if (typeof window !== 'undefined') {
+        const cache: BriefingCache = { data: result, timestamp: Date.now(), userName };
+        localStorage.setItem(BRIEFING_CACHE_KEY, JSON.stringify(cache));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+      console.error('Briefing fetch error:', err);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  }, [userName]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      fetchFresh(true);
+      return;
+    }
+
+    // Try cache first
+    try {
+      const raw = localStorage.getItem(BRIEFING_CACHE_KEY);
+      if (raw) {
+        const cache: BriefingCache = JSON.parse(raw);
+        const age = Date.now() - cache.timestamp;
+        if (cache.userName === userName && age < BRIEFING_CACHE_TTL_MS) {
+          setData(cache.data);
+          setLoading(false);
+          // Background refresh (silent)
+          fetchFresh(false);
+          return;
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    // No valid cache — fetch with loading indicator
+    fetchFresh(true);
+  }, [userName, fetchFresh]);
+
+  return { data, loading, error, refetch: () => fetchFresh(true) };
 }
 
 /**

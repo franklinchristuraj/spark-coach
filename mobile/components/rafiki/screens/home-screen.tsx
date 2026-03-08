@@ -1,13 +1,15 @@
 "use client"
 
 import { MessageCircle, Brain, TrendingUp, BookOpen, Loader2 } from "lucide-react"
-import { useBriefing } from "@/hooks/use-api"
+import { BriefingResponse } from "@/lib/api"
 
 interface HomeScreenProps {
   onNavigate: (tab: "chat" | "quiz" | "insights") => void
+  briefing: BriefingResponse | null
+  loading: boolean
 }
 
-function TodayFocusCard({ briefing }: { briefing: any }) {
+function TodayFocusCard({ briefing }: { briefing: BriefingResponse | null }) {
   const dailyPlan = briefing?.briefing?.daily_plan?.[0] || "Focus on your active learning resources today.";
 
   return (
@@ -29,10 +31,9 @@ function TodayFocusCard({ briefing }: { briefing: any }) {
   )
 }
 
-function GoalsStrip({ briefing }: { briefing: any }) {
+function GoalsStrip({ briefing }: { briefing: BriefingResponse | null }) {
   const learningPath = briefing?.briefing?.learning_path_progress;
 
-  // Mock goals for now (backend doesn't have goals system yet)
   const goals = learningPath ? [
     {
       title: learningPath.name || "Learning Path",
@@ -43,7 +44,6 @@ function GoalsStrip({ briefing }: { briefing: any }) {
   ] : [];
 
   const activeResources = briefing?.briefing?.stats?.active_resources || 0;
-  const totalResources = briefing?.briefing?.stats?.active_resources || 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -85,6 +85,34 @@ function GoalsStrip({ briefing }: { briefing: any }) {
   )
 }
 
+function HomeSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 px-5 pt-14">
+      {/* Header skeleton */}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="h-7 w-48 bg-muted animate-pulse rounded-lg" />
+          <div className="h-4 w-32 bg-muted animate-pulse rounded-lg" />
+        </div>
+        <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+      </div>
+      {/* Today's focus skeleton */}
+      <div className="rounded-2xl bg-muted animate-pulse h-28 rounded-2xl" />
+      {/* Goals strip skeleton */}
+      <div className="flex flex-col gap-3">
+        <div className="h-5 w-24 bg-muted animate-pulse rounded-lg" />
+        <div className="h-24 bg-muted animate-pulse rounded-2xl" />
+      </div>
+      {/* Action cards skeleton */}
+      <div className="flex gap-3">
+        <div className="flex-1 h-20 bg-muted animate-pulse rounded-2xl" />
+        <div className="flex-1 h-20 bg-muted animate-pulse rounded-2xl" />
+        <div className="flex-1 h-20 bg-muted animate-pulse rounded-2xl" />
+      </div>
+    </div>
+  )
+}
+
 interface ActionCardProps {
   icon: React.ElementType
   label: string
@@ -109,9 +137,7 @@ function ActionCard({ icon: Icon, label, isPrimary, onClick }: ActionCardProps) 
   )
 }
 
-export function HomeScreen({ onNavigate }: HomeScreenProps) {
-  const { data: briefing, loading, error } = useBriefing("Franklin");
-
+export function HomeScreen({ onNavigate, briefing, loading }: HomeScreenProps) {
   const now = new Date()
   const hour = now.getHours()
   const greeting = briefing?.briefing?.greeting ||
@@ -119,28 +145,12 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const dayName = now.toLocaleDateString("en-US", { weekday: "long" })
   const monthDay = now.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 px-5">
-        <div className="text-center">
-          <p className="text-[15px] text-foreground font-medium">Unable to load briefing</p>
-          <p className="text-[13px] text-text-secondary mt-1">Make sure the backend is running</p>
-          <p className="text-[11px] text-text-muted mt-2 font-mono">{error.message}</p>
-        </div>
-      </div>
-    );
+  if (loading && !briefing) {
+    return <HomeSkeleton />
   }
 
   return (
-    <div className="flex flex-col gap-6 px-5 pt-14 pb-24">
+    <div className="flex flex-col gap-6 px-5 pt-14 pb-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-1">

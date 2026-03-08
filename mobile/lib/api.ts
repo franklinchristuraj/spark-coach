@@ -210,6 +210,10 @@ export const api = {
     return apiFetch(`/api/v1/quiz/session/${sessionId}`);
   },
 
+  async getQuizResources(): Promise<{ status: string; resources: Array<{ title: string; path: string }> }> {
+    return apiFetch('/api/v1/quiz/resources');
+  },
+
   // ─── Chat ───
   async chat(
     message: string,

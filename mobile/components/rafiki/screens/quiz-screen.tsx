@@ -1,25 +1,34 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ArrowLeft, BookOpen, Zap, Loader2, CheckCircle2, XCircle } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, BookOpen, Zap, Loader2, CheckCircle2, XCircle, Play, Calendar } from "lucide-react"
 import { useQuiz, useStreak } from "@/hooks/use-api"
+
+interface ReviewItem {
+  title: string
+  path: string
+  days_overdue: number
+}
 
 interface QuizScreenProps {
   onBack: () => void
+  reviewsDue?: ReviewItem[]
 }
 
-export function QuizScreen({ onBack }: QuizScreenProps) {
+export function QuizScreen({ onBack, reviewsDue = [] }: QuizScreenProps) {
   const { quizState, loading, error, startQuiz, submitAnswer, resetQuiz } = useQuiz()
   const { data: streak } = useStreak()
   const [answer, setAnswer] = useState("")
   const [showFeedback, setShowFeedback] = useState(false)
+  const [started, setStarted] = useState(false)
 
-  // Auto-start quiz with a test resource (in production, user would select)
-  useEffect(() => {
-    if (!quizState.sessionId && !loading) {
-      startQuiz("resources/multi-agent-systems.md", 3)
-    }
-  }, [])
+  const currentResource = reviewsDue[0] ?? null
+
+  const handleStart = async () => {
+    if (!currentResource) return
+    setStarted(true)
+    await startQuiz(currentResource.path, 3)
+  }
 
   const handleSubmitAnswer = async () => {
     if (!answer.trim()) return
@@ -40,26 +49,103 @@ export function QuizScreen({ onBack }: QuizScreenProps) {
     resetQuiz()
     setShowFeedback(false)
     setAnswer("")
+    setStarted(false)
   }
 
-  const progressDots = Array.from({ length: quizState.totalQuestions || 5 }, (_, i) => {
+  const progressDots = Array.from({ length: quizState.totalQuestions || 3 }, (_, i) => {
     const answered = quizState.progress.answered
     if (i < answered) return "completed"
     if (i === answered) return "current"
     return "upcoming"
   })
 
-  // Loading state
+  // Header shared across states
+  const Header = () => (
+    <div className="flex items-center justify-between px-5 pt-14 pb-4">
+      <button onClick={onBack} className="text-text-secondary bg-transparent border-none" aria-label="Go back">
+        <ArrowLeft className="h-5 w-5" />
+      </button>
+      <h2 className="text-[17px] font-bold text-foreground">Daily Challenge</h2>
+      {streak ? (
+        <div className="rounded-full bg-[rgba(249,115,22,0.12)] px-3 py-1 flex items-center gap-1">
+          <Zap className="h-3 w-3 text-warning" fill="currentColor" />
+          <span className="text-[11px] font-medium text-warning">{streak.current_days} day streak</span>
+        </div>
+      ) : (
+        <div className="w-24" />
+      )}
+    </div>
+  )
+
+  // No reviews due
+  if (!currentResource) {
+    return (
+      <div className="flex h-full flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-5">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center">
+              <Calendar className="h-8 w-8 text-text-muted" />
+            </div>
+            <div>
+              <p className="text-[17px] font-semibold text-foreground">All caught up!</p>
+              <p className="text-[14px] text-text-secondary mt-1">No reviews due today. Come back tomorrow.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Start screen (before quiz begins)
+  if (!started) {
+    return (
+      <div className="flex h-full flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-5">
+          <div className="flex flex-col items-center gap-6 text-center w-full max-w-sm">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <BookOpen className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <p className="text-[13px] text-text-muted uppercase tracking-widest font-medium mb-2">
+                Ready to review
+              </p>
+              <p className="text-[20px] font-bold text-foreground leading-snug">
+                {currentResource.title}
+              </p>
+              {currentResource.days_overdue > 0 && (
+                <p className="text-[13px] text-warning mt-2">
+                  {currentResource.days_overdue} day{currentResource.days_overdue !== 1 ? "s" : ""} overdue
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 w-full text-[13px] text-text-secondary">
+              <p>3 questions · Rafiki evaluates depth, not just correctness</p>
+            </div>
+            {reviewsDue.length > 1 && (
+              <p className="text-[12px] text-text-muted">
+                +{reviewsDue.length - 1} more resource{reviewsDue.length - 1 !== 1 ? "s" : ""} due
+              </p>
+            )}
+            <button
+              onClick={handleStart}
+              className="w-full rounded-full bg-primary text-primary-foreground py-3.5 text-[16px] font-medium border-none hover:opacity-90 transition-all flex items-center justify-center gap-2"
+            >
+              <Play className="h-4 w-4" fill="currentColor" />
+              Start Quiz
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Loading state (quiz starting)
   if (loading && !quizState.currentQuestion) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between px-5 pt-14 pb-4">
-          <button onClick={onBack} className="text-text-secondary bg-transparent border-none" aria-label="Go back">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="text-[17px] font-bold text-foreground">Daily Challenge</h2>
-          <div className="w-24" />
-        </div>
+        <Header />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -71,17 +157,17 @@ export function QuizScreen({ onBack }: QuizScreenProps) {
   if (error) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between px-5 pt-14 pb-4">
-          <button onClick={onBack} className="text-text-secondary bg-transparent border-none" aria-label="Go back">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="text-[17px] font-bold text-foreground">Daily Challenge</h2>
-          <div className="w-24" />
-        </div>
+        <Header />
         <div className="flex-1 flex items-center justify-center px-5">
           <div className="text-center">
             <p className="text-[15px] text-foreground font-medium">Unable to start quiz</p>
             <p className="text-[13px] text-text-secondary mt-1">{error.message}</p>
+            <button
+              onClick={handleRestart}
+              className="mt-4 rounded-full bg-secondary text-foreground px-5 py-2.5 text-[14px] font-medium border-none"
+            >
+              Try again
+            </button>
           </div>
         </div>
       </div>
@@ -92,13 +178,7 @@ export function QuizScreen({ onBack }: QuizScreenProps) {
   if (quizState.isComplete && quizState.finalScore !== null) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between px-5 pt-14 pb-4">
-          <button onClick={onBack} className="text-text-secondary bg-transparent border-none" aria-label="Go back">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="text-[17px] font-bold text-foreground">Quiz Complete</h2>
-          <div className="w-24" />
-        </div>
+        <Header />
         <div className="flex-1 flex items-center justify-center px-5">
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="flex flex-col items-center gap-4">
@@ -132,21 +212,9 @@ export function QuizScreen({ onBack }: QuizScreenProps) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4">
-        <button onClick={onBack} className="text-text-secondary bg-transparent border-none" aria-label="Go back">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h2 className="text-[17px] font-bold text-foreground">Daily Challenge</h2>
-        {streak && (
-          <div className="rounded-full bg-[rgba(249,115,22,0.12)] px-3 py-1 flex items-center gap-1">
-            <Zap className="h-3 w-3 text-warning" fill="currentColor" />
-            <span className="text-[11px] font-medium text-warning">{streak.current_days} day streak</span>
-          </div>
-        )}
-      </div>
+      <Header />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-24">
+      <div className="flex-1 overflow-y-auto px-5 pb-6">
         <div className="flex flex-col gap-6">
           {/* Progress Dots */}
           <div className="flex flex-col items-center gap-2">
@@ -172,7 +240,7 @@ export function QuizScreen({ onBack }: QuizScreenProps) {
           {/* Topic Badge */}
           <div className="flex justify-center">
             <span className="rounded-full bg-[rgba(37,99,235,0.1)] px-4 py-1.5 text-[12px] font-medium text-primary">
-              {quizState.resource || "Learning Resource"}
+              {currentResource.title}
             </span>
           </div>
 
