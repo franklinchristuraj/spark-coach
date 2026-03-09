@@ -29,7 +29,7 @@ class LLMClient:
             import google.generativeai as genai
             genai.configure(api_key=settings.GEMINI_API_KEY)
             self.gemini = genai
-            self.default_model = "gemini-3-flash-preview"  # Company Gemini model
+            self.default_model = "gemini-2.5-flash"  # Company Gemini model
             self.use_gemini = True
             logger.info("Using Gemini as LLM provider")
         else:
