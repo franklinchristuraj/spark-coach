@@ -189,9 +189,17 @@ Remember: Respond with valid JSON only. No markdown formatting."""
                     cleaned = cleaned[:-3]
                 cleaned = cleaned.strip()
 
-                parsed = json.loads(cleaned)
-                logger.info("LLM JSON completion successful")
-                return parsed
+                try:
+                    parsed = json.loads(cleaned)
+                    logger.info("LLM JSON completion successful")
+                    return parsed
+                except json.JSONDecodeError:
+                    # Attempt to repair truncated JSON (e.g. missing closing brackets)
+                    repaired = self._try_repair_json(cleaned)
+                    if repaired is not None:
+                        logger.warning("LLM JSON was truncated but repaired successfully")
+                        return repaired
+                    raise
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM JSON response: {str(e)}")
@@ -199,6 +207,27 @@ Remember: Respond with valid JSON only. No markdown formatting."""
         except Exception as e:
             logger.error(f"LLM JSON completion failed: {str(e)}")
             raise
+
+    @staticmethod
+    def _try_repair_json(text: str):
+        """Attempt to repair truncated JSON by closing open brackets/strings"""
+        # Common truncation: string cut mid-value, missing ] or }
+        # Strategy: try progressively adding closing tokens
+        candidates = [
+            text,
+            text + '"}]',       # truncated inside a string value in an array
+            text + '"}',        # truncated inside a string value in an object
+            text + '"]',        # truncated inside a string in an array
+            text + ']',         # missing array close
+            text + '}]',        # missing object + array close
+            text + '}',         # missing object close
+        ]
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+        return None
 
     async def _complete_json_gemini(
         self,
@@ -298,37 +327,48 @@ Generate a coaching message."""
         """
         system_prompt = """You are an expert educator creating quiz questions for spaced repetition learning.
 
-Question types:
-- recall: Test basic memory of facts and concepts
-- application: Test ability to apply concepts to new situations
-- connection: Test ability to relate concepts across domains
+Question types (use exactly one per question):
+- "recall": Test memory of a specific fact, definition, or concept from the content
+- "application": Present a realistic scenario and ask how to apply a concept
+- "connection": Ask to relate two ideas from the content or connect to broader principles
 
-Create questions that:
-- Are specific and unambiguous
-- Have clear, verifiable answers
-- Progress from concrete (recall) to abstract (connection)
-- Match the requested difficulty level"""
+Rules for GOOD questions:
+- Reference specific terms, tools, or concepts from the content (not generic)
+- Ask "why" or "how" — avoid yes/no or simple definition lookups
+- Each question should test a DIFFERENT concept from the content
+- Keep questions concise (1-2 sentences max)
+- expected_answer_hints should list 2-3 key points a strong answer would cover
 
-        user_message = f"""Generate {num_questions} quiz questions from this content at {difficulty} difficulty.
+Rules to AVOID bad questions:
+- Do NOT ask vague questions like "What is important about X?"
+- Do NOT repeat the same concept across questions
+- Do NOT ask questions answerable without reading the content
+
+You MUST return valid JSON. Keep your response compact."""
+
+        # Limit content to prevent JSON truncation from token limits
+        trimmed_content = content[:2000]
+
+        user_message = f"""Generate exactly {num_questions} quiz questions from this content at {difficulty} difficulty.
 
 Content:
-{content[:3000]}  # Limit content length
+{trimmed_content}
 
-Return as JSON array with format:
-[
-  {{
-    "question": "question text",
-    "type": "recall|application|connection",
-    "difficulty": "easy|medium|hard",
-    "expected_answer_hints": "guidance on what a good answer includes"
-  }}
-]"""
+Return ONLY a JSON array (no extra text):
+[{{"question":"...","type":"recall","difficulty":"{difficulty}","expected_answer_hints":"..."}}]"""
 
-        return await self.complete_json(
+        result = await self.complete_json(
             system_prompt=system_prompt,
             user_message=user_message,
-            max_tokens=2048
+            max_tokens=1500
         )
+
+        # Handle both array and wrapped responses
+        if isinstance(result, list):
+            return result
+        if isinstance(result, dict) and "questions" in result:
+            return result["questions"]
+        return result
 
     async def score_quiz_answer(
         self,

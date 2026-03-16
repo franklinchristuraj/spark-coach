@@ -37,12 +37,11 @@ export function QuizScreen({ onBack, reviewsDue = [] }: QuizScreenProps) {
     if (response) {
       setShowFeedback(true)
       setAnswer("")
-
-      // Auto-hide feedback and move to next question after 3 seconds
-      setTimeout(() => {
-        setShowFeedback(false)
-      }, 3000)
     }
+  }
+
+  const handleContinue = () => {
+    setShowFeedback(false)
   }
 
   const handleRestart = () => {
@@ -227,7 +226,7 @@ export function QuizScreen({ onBack, reviewsDue = [] }: QuizScreenProps) {
                       ? "h-2.5 w-2.5 bg-primary"
                       : state === "current"
                         ? "h-3 w-3 border-2 border-primary bg-transparent"
-                        : "h-2.5 w-2.5 bg-[#D4D4D4]"
+                        : "h-2.5 w-2.5 bg-muted"
                   }`}
                 />
               ))}
@@ -274,28 +273,30 @@ export function QuizScreen({ onBack, reviewsDue = [] }: QuizScreenProps) {
           {showFeedback && quizState.lastFeedback && (
             <div className={`rounded-2xl p-5 border ${
               quizState.lastFeedback.correct
-                ? "bg-green-50 border-green-200"
-                : "bg-orange-50 border-orange-200"
+                ? "bg-primary/5 border-primary/20"
+                : "bg-warning/5 border-warning/20"
             }`}>
               <div className="flex items-start gap-3">
                 {quizState.lastFeedback.correct ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
                 ) : (
-                  <XCircle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
+                  <XCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1">
-                  <p className={`text-[15px] font-medium ${
-                    quizState.lastFeedback.correct ? "text-green-900" : "text-orange-900"
-                  }`}>
+                  <p className="text-[15px] font-medium text-foreground">
                     Score: {quizState.lastFeedback.score}/100
                   </p>
-                  <p className={`text-[13px] mt-2 ${
-                    quizState.lastFeedback.correct ? "text-green-800" : "text-orange-800"
-                  }`}>
+                  <p className="text-[13px] mt-2 text-text-secondary leading-relaxed">
                     {quizState.lastFeedback.feedback}
                   </p>
                 </div>
               </div>
+              <button
+                onClick={handleContinue}
+                className="w-full mt-4 rounded-full bg-primary text-primary-foreground py-3 text-[15px] font-medium border-none hover:opacity-90 transition-all"
+              >
+                {quizState.isComplete ? "See Results" : "Next Question"}
+              </button>
             </div>
           )}
 
@@ -326,8 +327,6 @@ export function QuizScreen({ onBack, reviewsDue = [] }: QuizScreenProps) {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Evaluating...
               </span>
-            ) : showFeedback ? (
-              "Next question..."
             ) : (
               "Submit Answer"
             )}
