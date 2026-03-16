@@ -229,6 +229,26 @@ Remember: Respond with valid JSON only. No markdown formatting."""
                 continue
         return None
 
+    @staticmethod
+    def _sanitize_for_json_prompt(text: str) -> str:
+        """Remove characters from vault content that confuse LLMs generating JSON.
+
+        Strips control chars, excessive whitespace, and YAML frontmatter fences
+        that can cause unescaped quotes/backslashes in the LLM JSON output.
+        """
+        import re
+        # Strip YAML frontmatter block
+        text = re.sub(r'^---\n.*?\n---\n', '', text, flags=re.DOTALL)
+        # Replace backslashes (common in file paths) with forward slashes
+        text = text.replace('\\', '/')
+        # Remove control characters except newlines
+        text = re.sub(r'[\x00-\x09\x0b-\x0c\x0e-\x1f]', '', text)
+        # Collapse excessive newlines
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        # Strip markdown code block fences that might confuse JSON output
+        text = re.sub(r'```\w*\n?', '', text)
+        return text.strip()
+
     async def _complete_json_gemini(
         self,
         system_prompt: str,
@@ -239,22 +259,48 @@ Remember: Respond with valid JSON only. No markdown formatting."""
         """Complete with JSON output using Gemini's native JSON mode"""
         from google.genai import types
 
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            max_output_tokens=max_tokens,
-            temperature=0.7,
-            response_mime_type="application/json",
-        )
+        last_raw = ""
+        for attempt in range(2):
+            config = types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=max_tokens,
+                temperature=0.7 if attempt == 0 else 0.3,
+                response_mime_type="application/json",
+            )
 
-        response = await self.gemini.aio.models.generate_content(
-            model=model or self.default_model,
-            contents=user_message,
-            config=config,
-        )
+            response = await self.gemini.aio.models.generate_content(
+                model=model or self.default_model,
+                contents=user_message,
+                config=config,
+            )
 
-        parsed = json.loads(response.text)
-        logger.info("Gemini JSON completion successful")
-        return parsed
+            last_raw = response.text or ""
+            logger.debug(f"Gemini JSON raw response (attempt {attempt+1}): {last_raw[:200]}...")
+
+            # Try direct parse
+            try:
+                parsed = json.loads(last_raw)
+                logger.info("Gemini JSON completion successful")
+                return parsed
+            except json.JSONDecodeError:
+                pass
+
+            # Try repair
+            repaired = self._try_repair_json(last_raw.strip())
+            if repaired is not None:
+                logger.warning(f"Gemini JSON repaired on attempt {attempt+1}")
+                return repaired
+
+            # Retry with stricter prompt on second attempt
+            if attempt == 0:
+                logger.warning(f"Gemini JSON invalid on attempt 1, retrying. Raw: {last_raw[:300]}")
+                user_message = user_message + "\n\nIMPORTANT: Your previous response was invalid JSON. Return ONLY a valid JSON array, no other text. Keep strings short."
+
+        # Both attempts failed
+        raise json.JSONDecodeError(
+            f"Gemini failed to produce valid JSON after 2 attempts",
+            last_raw, 0
+        )
 
     async def coach_message(
         self,
@@ -346,8 +392,8 @@ Rules to AVOID bad questions:
 
 You MUST return valid JSON. Keep your response compact."""
 
-        # Limit content to prevent JSON truncation from token limits
-        trimmed_content = content[:2000]
+        # Sanitize and limit content to prevent JSON issues
+        trimmed_content = self._sanitize_for_json_prompt(content[:2000])
 
         user_message = f"""Generate exactly {num_questions} quiz questions from this content at {difficulty} difficulty.
 
@@ -410,7 +456,7 @@ Question: {question}
 User's answer: {user_answer}
 
 Reference content:
-{content_context[:1500]}
+{self._sanitize_for_json_prompt(content_context[:1500])}
 
 {f"Expected answer should include: {expected_hints}" if expected_hints else ""}
 
